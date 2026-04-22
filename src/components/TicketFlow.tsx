@@ -157,7 +157,12 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleEditTrip}
+                className="group flex w-full items-center justify-between gap-3 rounded-lg p-1 text-left transition-colors hover:bg-secondary/60"
+                aria-label="Edit From and To"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
                   <p className="truncate text-sm font-semibold text-foreground">{fromName}</p>
@@ -167,7 +172,8 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
                   <p className="truncate text-sm font-semibold text-foreground">{toName}</p>
                 </div>
-              </div>
+                <Pencil className="ml-1 h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
 
               <div className="my-3 h-px bg-border" />
 
