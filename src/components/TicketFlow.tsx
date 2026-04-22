@@ -112,30 +112,38 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
     });
   }, [ticket, lang]);
 
-  const downloadTicket = () => {
-    if (!ticket) return;
-    const text = [
-      "=== RouteX Digital Ticket ===",
-      `Ticket ID: ${ticket.ticketId}`,
-      `Passenger: ${ticket.passenger}`,
-      `From: ${ticket.fromName}`,
-      `To: ${ticket.toName}`,
-      `Bus: ${ticket.busNumber} (${ticket.busName})`,
-      `Departure: ${formatTime12(ticket.departure)}`,
-      `Arrival: ${formatTime12(ticket.arrival)}`,
-      `Fare: ₹${ticket.price}`,
-      `Issued: ${issuedDate}`,
-      `Status: PAID`,
-      "",
-      "Show this ticket to the conductor if asked.",
-    ].join("\n");
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${ticket.ticketId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // After launching a UPI app, when the user returns to this tab,
+  // automatically move to processing → ticket.
+  const launchedRef = useRef(false);
+  useEffect(() => {
+    if (step !== "payment") {
+      launchedRef.current = false;
+      return;
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && launchedRef.current) {
+        launchedRef.current = false;
+        setStep("processing");
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [step]);
+
+  const openUpi = () => {
+    launchedRef.current = true;
+    const params = new URLSearchParams({
+      pa: UPI_VPA,
+      pn: UPI_PAYEE_NAME,
+      am: String(bus.price),
+      cu: "INR",
+      tn: `RouteX ${bus.bus_number} ${fromName}->${toName}`,
+    });
+    window.location.href = `upi://pay?${params.toString()}`;
+  };
+
+  const handleEditTrip = () => {
+    onClose();
   };
 
   return (
