@@ -5,7 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStops } from "@/hooks/useStops";
 import { BusRoute } from "@/hooks/useBusSearch";
-import { ArrowRight, Bus, CheckCircle2, Loader2, Pencil, Ticket } from "lucide-react";
+import { ArrowRight, Bus, CheckCircle2, Loader2, Pencil, Ticket, X } from "lucide-react";
 import logo from "@/assets/routex-logo.jpg";
 
 // TODO: replace with the merchant's real UPI VPA + display name
@@ -54,6 +54,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
   const { data: stops = [] } = useStops();
   const [step, setStep] = useState<Step>("summary");
   const [ticket, setTicket] = useState<SavedTicket | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const getStopName = (id: string) => {
     const s = stops.find((x) => x.id === id);
@@ -61,17 +62,60 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
     return lang === "ta" ? s.name_ta : s.name_en;
   };
 
-  const fromName = getStopName(bus.from_id);
-  const toName = getStopName(bus.to_id);
+  // Full ordered list of stops along this bus's route
+  const routeStopIds = useMemo(
+    () => [bus.from_id, ...(bus.intermediate_stops || []), bus.to_id],
+    [bus.from_id, bus.intermediate_stops, bus.to_id]
+  );
+
+  // User-selected boarding / alighting points (default = full route)
+  const [fromId, setFromId] = useState<string>(bus.from_id);
+  const [toId, setToId] = useState<string>(bus.to_id);
+
+  const fromName = getStopName(fromId);
+  const toName = getStopName(toId);
   const passengerName = user?.name || "Guest";
+
+  // Compute fare proportional to the segment of the route the passenger uses.
+  // Min fare ₹10, rounded up to nearest ₹5.
+  const totalSegments = Math.max(1, routeStopIds.length - 1);
+  const fromIdx = Math.max(0, routeStopIds.indexOf(fromId));
+  const toIdx = Math.max(fromIdx + 1, routeStopIds.indexOf(toId));
+  const usedSegments = Math.max(1, toIdx - fromIdx);
+  const segmentPrice = Math.max(
+    10,
+    Math.ceil((bus.price * usedSegments) / totalSegments / 5) * 5
+  );
+
+  // Estimate departure time at the chosen boarding stop, linearly along the route.
+  const estimatedDeparture = useMemo(() => {
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    const toHHMM = (mins: number) => {
+      const m = ((mins % 1440) + 1440) % 1440;
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    };
+    const dep = toMin(bus.departure);
+    const arr = toMin(bus.arrival);
+    const total = arr >= dep ? arr - dep : arr + 1440 - dep;
+    const offset = Math.round((total * fromIdx) / totalSegments);
+    return toHHMM(dep + offset);
+  }, [bus.departure, bus.arrival, fromIdx, totalSegments]);
 
   // Reset when reopened
   useEffect(() => {
     if (open) {
       setStep("summary");
       setTicket(null);
+      setEditing(false);
+      setFromId(bus.from_id);
+      setToId(bus.to_id);
     }
-  }, [open, bus.id]);
+  }, [open, bus.id, bus.from_id, bus.to_id]);
 
   // Simulate payment processing
   useEffect(() => {
@@ -84,9 +128,9 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
         toName,
         busNumber: bus.bus_number,
         busName: bus.bus_name,
-        departure: bus.departure,
+        departure: estimatedDeparture,
         arrival: bus.arrival,
-        price: bus.price,
+        price: segmentPrice,
         issuedAt: new Date().toISOString(),
       };
       setTicket(t);
@@ -101,7 +145,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
       setStep("ticket");
     }, 1400);
     return () => clearTimeout(timer);
-  }, [step, bus, fromName, toName, passengerName]);
+  }, [step, bus, fromName, toName, passengerName, estimatedDeparture, segmentPrice]);
 
   const issuedDate = useMemo(() => {
     if (!ticket) return "";
@@ -135,15 +179,11 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
     const params = new URLSearchParams({
       pa: UPI_VPA,
       pn: UPI_PAYEE_NAME,
-      am: String(bus.price),
+      am: String(segmentPrice),
       cu: "INR",
       tn: `RouteX ${bus.bus_number} ${fromName}->${toName}`,
     });
     window.location.href = `upi://pay?${params.toString()}`;
-  };
-
-  const handleEditTrip = () => {
-    onClose();
   };
 
   return (
@@ -157,23 +197,91 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
-              <button
-                type="button"
-                onClick={handleEditTrip}
-                className="group flex w-full items-center justify-between gap-3 rounded-lg p-1 text-left transition-colors hover:bg-secondary/60"
-                aria-label="Edit From and To"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
-                  <p className="truncate text-sm font-semibold text-foreground">{fromName}</p>
+              {!editing ? (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="group flex w-full items-center justify-between gap-3 rounded-lg p-1 text-left transition-colors hover:bg-secondary/60"
+                  aria-label="Edit boarding and drop point"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{fromName}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1 text-right">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{toName}</p>
+                  </div>
+                  <Pencil className="ml-1 h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" />
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-foreground">Choose your stops</p>
+                    <button
+                      onClick={() => setEditing(false)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-secondary"
+                      aria-label="Close edit"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Boarding (From)
+                    </label>
+                    <select
+                      value={fromId}
+                      onChange={(e) => {
+                        const newFrom = e.target.value;
+                        setFromId(newFrom);
+                        const newFromIdx = routeStopIds.indexOf(newFrom);
+                        const curToIdx = routeStopIds.indexOf(toId);
+                        if (curToIdx <= newFromIdx) {
+                          setToId(routeStopIds[newFromIdx + 1] || bus.to_id);
+                        }
+                      }}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-medium text-foreground"
+                    >
+                      {routeStopIds.slice(0, -1).map((id) => (
+                        <option key={id} value={id}>
+                          {getStopName(id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Drop (To)
+                    </label>
+                    <select
+                      value={toId}
+                      onChange={(e) => setToId(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-medium text-foreground"
+                    >
+                      {routeStopIds
+                        .slice(routeStopIds.indexOf(fromId) + 1)
+                        .map((id) => (
+                          <option key={id} value={id}>
+                            {getStopName(id)}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => setEditing(false)}
+                  >
+                    Apply
+                  </Button>
                 </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1 text-right">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
-                  <p className="truncate text-sm font-semibold text-foreground">{toName}</p>
-                </div>
-                <Pencil className="ml-1 h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-              </button>
+              )}
 
               <div className="my-3 h-px bg-border" />
 
@@ -184,12 +292,17 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Departure</dt>
-                  <dd className="font-medium text-foreground">{formatTime12(bus.departure)}</dd>
+                  <dd className="font-medium text-foreground">{formatTime12(estimatedDeparture)}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Ticket Price</dt>
-                  <dd className="text-base font-bold text-primary">₹{bus.price}</dd>
+                  <dd className="text-base font-bold text-primary">₹{segmentPrice}</dd>
                 </div>
+                {segmentPrice < bus.price && (
+                  <p className="pt-1 text-[10px] text-muted-foreground">
+                    Fare adjusted for selected segment (full route ₹{bus.price})
+                  </p>
+                )}
               </dl>
             </div>
 
@@ -203,7 +316,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
           <div className="animate-fade-in p-5">
             <div className="mb-4 flex items-center gap-2">
               <Ticket className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Pay ₹{bus.price}</h2>
+              <h2 className="text-base font-bold text-foreground">Pay ₹{segmentPrice}</h2>
             </div>
 
             <p className="mb-3 text-center text-xs text-muted-foreground">
