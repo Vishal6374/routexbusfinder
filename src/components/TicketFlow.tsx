@@ -5,7 +5,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStops } from "@/hooks/useStops";
 import { BusRoute } from "@/hooks/useBusSearch";
-import { ArrowRight, Bus, CheckCircle2, Loader2, Pencil, Ticket, X } from "lucide-react";
+import { ArrowRight, Bus, CheckCircle2, Copy, Loader2, Pencil, Ticket, X } from "lucide-react";
+import QRCode from "qrcode";
+import { toast } from "@/hooks/use-toast";
 import logo from "@/assets/routex-logo.jpg";
 
 // TODO: replace with the merchant's real UPI VPA + display name
@@ -175,9 +177,9 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
   }, [step]);
 
   const [desktopNotice, setDesktopNotice] = useState(false);
-  const [iosNotice, setIosNotice] = useState<null | { gpay: string; phonepe: string; upi: string }>(null);
+  const [qrPay, setQrPay] = useState<null | { qr: string; upiUrl: string }>(null);
 
-  const buildUpiUrls = () => {
+  const buildUpiUrl = () => {
     const params = new URLSearchParams({
       pa: UPI_VPA,
       pn: UPI_PAYEE_NAME,
@@ -185,11 +187,17 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
       cu: "INR",
       tn: `RouteX ${bus.bus_number} ${fromName}->${toName}`,
     }).toString();
-    return {
-      gpay: `tez://upi/pay?${params}`,
-      phonepe: `phonepe://pay?${params}`,
-      upi: `upi://pay?${params}`,
-    };
+    return `upi://pay?${params}`;
+  };
+
+  const showQrPayment = async () => {
+    const upiUrl = buildUpiUrl();
+    try {
+      const qr = await QRCode.toDataURL(upiUrl, { width: 260, margin: 1 });
+      setQrPay({ qr, upiUrl });
+    } catch {
+      setQrPay({ qr: "", upiUrl });
+    }
   };
 
   const openUpiApp = (app: "gpay" | "phonepe") => {
@@ -199,29 +207,44 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
 
     if (!isAndroid && !isIOS) {
       setDesktopNotice(true);
+      void showQrPayment();
       return;
     }
 
-    const urls = buildUpiUrls();
-
-    // iOS: most UPI apps don't register their custom URL scheme on iOS,
-    // so window.location.href silently fails. Show the user a tappable
-    // link list — a direct user-tap on an <a> is the only reliable way.
+    // iOS: GPay/PhonePe do NOT register UPI URL schemes on iPhone.
+    // The only reliable path is showing a QR code the user scans from their UPI app.
     if (isIOS) {
-      launchedRef.current = true;
-      setIosNotice(urls);
+      void showQrPayment();
       return;
     }
 
-    // Android: app-specific scheme works reliably.
+    // Android: app-specific scheme works.
     launchedRef.current = true;
-    const primary = app === "gpay" ? urls.gpay : urls.phonepe;
+    const upiUrl = buildUpiUrl();
+    const primary =
+      app === "gpay"
+        ? `tez://upi/pay?${upiUrl.split("?")[1]}`
+        : `phonepe://pay?${upiUrl.split("?")[1]}`;
     window.location.href = primary;
     setTimeout(() => {
       if (document.visibilityState === "visible") {
-        window.location.href = urls.upi;
+        window.location.href = upiUrl;
       }
     }, 800);
+  };
+
+  const copyVpa = async () => {
+    try {
+      await navigator.clipboard.writeText(UPI_VPA);
+      toast({ title: "UPI ID copied", description: UPI_VPA });
+    } catch {
+      toast({ title: "Copy failed", description: UPI_VPA, variant: "destructive" });
+    }
+  };
+
+  const markAsPaid = () => {
+    setQrPay(null);
+    setStep("processing");
   };
 
   return (
@@ -378,38 +401,42 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
 
             {desktopNotice && (
               <p className="mt-3 rounded-md bg-warning/10 px-3 py-2 text-center text-xs font-medium text-warning-foreground">
-                Open this page on your phone to pay with GPay or PhonePe.
+                Scan the QR below from any UPI app on your phone.
               </p>
             )}
 
-            {iosNotice && (
-              <div className="mt-3 space-y-2 rounded-md bg-info/10 p-3 text-xs">
-                <p className="font-semibold text-foreground">
-                  Tap a link below to open your UPI app:
+            {qrPay && (
+              <div className="mt-4 space-y-3 rounded-xl border border-border bg-card p-4">
+                <p className="text-center text-xs font-semibold text-foreground">
+                  Open GPay / PhonePe / any UPI app and scan
                 </p>
-                <div className="grid gap-2">
-                  <a
-                    href={iosNotice.gpay}
-                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-info shadow-sm active:scale-95"
+                {qrPay.qr && (
+                  <div className="flex justify-center">
+                    <img
+                      src={qrPay.qr}
+                      alt="UPI payment QR code"
+                      className="h-52 w-52 rounded-lg bg-white p-2"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">UPI ID</p>
+                    <p className="truncate font-mono text-xs font-bold text-foreground">{UPI_VPA}</p>
+                  </div>
+                  <button
+                    onClick={copyVpa}
+                    className="flex items-center gap-1 rounded bg-secondary px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-secondary/80"
                   >
-                    Open in Google Pay
-                  </a>
-                  <a
-                    href={iosNotice.phonepe}
-                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-accent-foreground shadow-sm active:scale-95"
-                  >
-                    Open in PhonePe
-                  </a>
-                  <a
-                    href={iosNotice.upi}
-                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-foreground shadow-sm active:scale-95"
-                  >
-                    Open any UPI app
-                  </a>
+                    <Copy className="h-3 w-3" /> Copy
+                  </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  If nothing opens, your UPI app may not support iOS deep links — please pay manually to <span className="font-mono">{UPI_VPA}</span>.
+                <p className="text-center text-[10px] text-muted-foreground">
+                  Pay <span className="font-bold text-foreground">₹{segmentPrice}</span> then tap below
                 </p>
+                <Button size="sm" className="w-full" onClick={markAsPaid}>
+                  I have paid
+                </Button>
               </div>
             )}
 
