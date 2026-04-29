@@ -175,8 +175,9 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
   }, [step]);
 
   const [desktopNotice, setDesktopNotice] = useState(false);
+  const [iosNotice, setIosNotice] = useState<null | { gpay: string; phonepe: string; upi: string }>(null);
 
-  const openUpiApp = (app: "gpay" | "phonepe") => {
+  const buildUpiUrls = () => {
     const params = new URLSearchParams({
       pa: UPI_VPA,
       pn: UPI_PAYEE_NAME,
@@ -184,29 +185,43 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
       cu: "INR",
       tn: `RouteX ${bus.bus_number} ${fromName}->${toName}`,
     }).toString();
+    return {
+      gpay: `tez://upi/pay?${params}`,
+      phonepe: `phonepe://pay?${params}`,
+      upi: `upi://pay?${params}`,
+    };
+  };
 
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile) {
+  const openUpiApp = (app: "gpay" | "phonepe") => {
+    const ua = navigator.userAgent;
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+    if (!isAndroid && !isIOS) {
       setDesktopNotice(true);
       return;
     }
 
+    const urls = buildUpiUrls();
+
+    // iOS: most UPI apps don't register their custom URL scheme on iOS,
+    // so window.location.href silently fails. Show the user a tappable
+    // link list — a direct user-tap on an <a> is the only reliable way.
+    if (isIOS) {
+      launchedRef.current = true;
+      setIosNotice(urls);
+      return;
+    }
+
+    // Android: app-specific scheme works reliably.
     launchedRef.current = true;
-
-    const schemes =
-      app === "gpay"
-        ? [`tez://upi/pay?${params}`, `gpay://upi/pay?${params}`, `upi://pay?${params}`]
-        : [`phonepe://pay?${params}`, `upi://pay?${params}`];
-
-    // Try app-specific scheme first; fall back to generic UPI shortly after.
-    window.location.href = schemes[0];
-    schemes.slice(1).forEach((url, i) => {
-      setTimeout(() => {
-        if (document.visibilityState === "visible") {
-          window.location.href = url;
-        }
-      }, 800 * (i + 1));
-    });
+    const primary = app === "gpay" ? urls.gpay : urls.phonepe;
+    window.location.href = primary;
+    setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        window.location.href = urls.upi;
+      }
+    }, 800);
   };
 
   return (
@@ -365,6 +380,37 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
               <p className="mt-3 rounded-md bg-warning/10 px-3 py-2 text-center text-xs font-medium text-warning-foreground">
                 Open this page on your phone to pay with GPay or PhonePe.
               </p>
+            )}
+
+            {iosNotice && (
+              <div className="mt-3 space-y-2 rounded-md bg-info/10 p-3 text-xs">
+                <p className="font-semibold text-foreground">
+                  Tap a link below to open your UPI app:
+                </p>
+                <div className="grid gap-2">
+                  <a
+                    href={iosNotice.gpay}
+                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-info shadow-sm active:scale-95"
+                  >
+                    Open in Google Pay
+                  </a>
+                  <a
+                    href={iosNotice.phonepe}
+                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-accent-foreground shadow-sm active:scale-95"
+                  >
+                    Open in PhonePe
+                  </a>
+                  <a
+                    href={iosNotice.upi}
+                    className="block rounded-md bg-card px-3 py-2 text-center font-bold text-foreground shadow-sm active:scale-95"
+                  >
+                    Open any UPI app
+                  </a>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  If nothing opens, your UPI app may not support iOS deep links — please pay manually to <span className="font-mono">{UPI_VPA}</span>.
+                </p>
+              </div>
             )}
 
             <button
