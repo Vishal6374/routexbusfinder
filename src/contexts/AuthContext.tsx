@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 
 export interface User {
@@ -64,14 +63,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // OAuth via Lovable Cloud managed auth
-    const result = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
-      extraParams: provider === "google" ? { prompt: "select_account" } : undefined,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: provider,
+      options: {
+        redirectTo: window.location.origin,
+        queryParams:
+          provider === "google"
+            ? { prompt: "select_account" }
+            : {},
+      },
     });
 
-    if (result.error) {
-      console.error("OAuth error:", result.error);
+    if (error) {
+      console.error("OAuth error:", error.message);
       return;
     }
 
@@ -93,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.name) {
       supabase.auth.getUser().then(({ data: { user: su } }) => {
         if (su) {
-          supabase.from("profiles").update({ name: data.name }).eq("user_id", su.id).then(() => {});
+          supabase.from("profiles").update({ name: data.name }).eq("user_id", su.id).then(() => { });
         }
       });
     }
