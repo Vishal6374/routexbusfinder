@@ -39,7 +39,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         setUser(mapSupabaseUser(session.user));
       } else {
-        setUser(null);
+        const guestUser = localStorage.getItem("guest-user");
+        setUser(guestUser ? JSON.parse(guestUser) : null);
       }
       setIsLoading(false);
     });
@@ -48,6 +49,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(mapSupabaseUser(session.user));
+      } else {
+        const guestUser = localStorage.getItem("guest-user");
+        if (guestUser) {
+          setUser(JSON.parse(guestUser));
+        }
       }
       setIsLoading(false);
     });
@@ -59,7 +65,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (provider === "guest") {
       // Sign in anonymously
       const { error } = await supabase.auth.signInAnonymously();
-      if (error) console.error("Guest login error:", error.message);
+      if (error) {
+        console.error("Guest login error:", error.message);
+        // Fallback to local guest user if anonymous auth is disabled
+        const fallbackGuest: User = {
+          id: "guest-" + Date.now(),
+          name: "Guest",
+          email: "",
+          provider: "guest",
+        };
+        setUser(fallbackGuest);
+        localStorage.setItem("guest-user", JSON.stringify(fallbackGuest));
+      }
       return;
     }
 
@@ -85,6 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem("guest-user");
     setUser(null);
   }, []);
 
