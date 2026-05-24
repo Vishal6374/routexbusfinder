@@ -9,7 +9,10 @@ const LoginPage = () => {
   const { t } = useLanguage();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <div 
+      className="flex min-h-screen flex-col items-center justify-center bg-background bg-[length:100%_100%] bg-no-repeat px-4"
+      style={{ backgroundImage: "url('/hero-bg.png')" }}
+    >
       <div className="absolute right-4 top-4">
         <LanguageToggle />
       </div>
