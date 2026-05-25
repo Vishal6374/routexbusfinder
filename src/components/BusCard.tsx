@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useStops } from "@/hooks/useStops";
 import { BusRoute } from "@/hooks/useBusSearch";
@@ -12,7 +12,7 @@ interface BusCardProps {
   isSaved?: boolean;
 }
 
-const BusCard = ({ bus, highlight, onSaveRoute, isSaved }: BusCardProps) => {
+const BusCard = memo(({ bus, highlight, onSaveRoute, isSaved }: BusCardProps) => {
   const { t, lang } = useLanguage();
   const { data: stops = [] } = useStops();
   const [showTicket, setShowTicket] = useState(false);

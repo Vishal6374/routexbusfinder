@@ -108,4 +108,5 @@ const matchStop = (routeStopId: string, searchId: string): boolean => {
 export const findBuses = (fromId: string, toId: string): BusRoute[] => {
   return busRoutes.filter(
     (b) => matchStop(b.fromId, fromId) && matchStop(b.toId, toId)
+  );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, memo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BusRoute } from "@/hooks/useBusSearch";
 import BusCard from "@/components/BusCard";
@@ -12,7 +12,7 @@ interface BusResultsProps {
 
 type SortOption = "price" | "departure" | "duration";
 
-const BusResults = ({ buses, onSaveRoute, savedRouteIds = new Set() }: BusResultsProps) => {
+const BusResults = memo(({ buses, onSaveRoute, savedRouteIds = new Set() }: BusResultsProps) => {
   const { t } = useLanguage();
   const [sortBy, setSortBy] = useState<SortOption>("departure");
   const [directOnly, setDirectOnly] = useState(false);
