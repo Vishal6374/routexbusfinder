@@ -10,7 +10,7 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="flex min-h-screen flex-col items-center justify-center bg-background bg-[length:100%_100%] bg-no-repeat px-4"
+      className="flex min-h-screen flex-col items-center justify-center bg-background bg-cover bg-center bg-fixed bg-no-repeat px-4"
       style={{ backgroundImage: "url('/hero-bg.png')" }}
     >
       <div className="absolute right-4 top-4">
