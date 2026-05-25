@@ -108,29 +108,4 @@ const matchStop = (routeStopId: string, searchId: string): boolean => {
 export const findBuses = (fromId: string, toId: string): BusRoute[] => {
   return busRoutes.filter(
     (b) => matchStop(b.fromId, fromId) && matchStop(b.toId, toId)
-  );
-};
-
-export const getRouteStops = (route: BusRoute): string[] => {
-  if (route.type === "direct") return [route.fromId, route.toId];
-  return [route.fromId, ...(route.intermediateStops || []), route.toId];
-};
-
-export const calculateFare = (route: BusRoute, boardingId: string, droppingId: string): number => {
-  const allStops = getRouteStops(route);
-  
-  // Find indices using exact or parent stop match
-  const startIndex = allStops.findIndex(id => matchStop(id, boardingId));
-  const endIndex = allStops.findIndex(id => matchStop(id, droppingId));
-  
-  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    const diff = endIndex - startIndex;
-    // Salem -> Elampillai diff is 10. If we need it to be 22 (for 11 stops), we use route.price.
-    // If it's a sub-route, we use diff * 2.
-    if (startIndex === 0 && endIndex === allStops.length - 1) {
-      return route.price;
-    }
-    return diff * 2;
-  }
-  return route.price;
 };
