@@ -105,6 +105,6 @@ const BusCard = memo(({ bus, highlight, onSaveRoute, isSaved }: BusCardProps) =>
       <TicketFlow open={showTicket} onClose={() => setShowTicket(false)} bus={bus} />
     </div>
   );
-};
+});
 
 export default BusCard;
