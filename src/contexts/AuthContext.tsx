@@ -61,6 +61,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!isLoading) {
+      // @ts-ignore
+      if (window.removeSplashScreen) {
+        // @ts-ignore
+        window.removeSplashScreen();
+      }
+    }
+  }, [isLoading]);
+
   const login = useCallback(async (provider: "google" | "guest") => {
     if (provider === "guest") {
       // Sign in anonymously

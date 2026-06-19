@@ -58,11 +58,11 @@ const SearchForm = ({ onSearch }: SearchFormProps) => {
   };
 
   return (
-    <div className="rounded-xl border border-white/20 lg:border-border mobile-glass lg:bg-card p-4 bus-card-shadow lg:!text-foreground">
+    <div className="rounded-xl border border-border bg-card p-4 bus-card-shadow text-foreground">
       <div className="flex flex-col gap-3">
         <div ref={fromRef} className="relative">
           <label className="mb-1 block text-xs font-medium !text-white lg:!text-muted-foreground">{t.search.from}</label>
-          <div className="flex items-center gap-2 rounded-lg border mobile-glass-input lg:bg-background lg:border-input px-3 py-2.5 min-h-[48px] lg:min-h-0">
+          <div className="flex items-center gap-2 rounded-lg border bg-background border-input px-3 py-2.5 min-h-[48px] lg:min-h-0">
             <Search className="h-4 w-4 text-white/70 lg:text-muted-foreground" />
             <input type="text" value={fromQuery} onChange={(e) => { setFromQuery(e.target.value); setFromId(""); setShowFromSuggestions(true); }} onFocus={() => setShowFromSuggestions(true)} placeholder={t.search.fromPlaceholder} className="w-full bg-transparent text-sm !text-white lg:!text-foreground outline-none placeholder:text-white/60 lg:placeholder:text-muted-foreground" />
           </div>
@@ -85,7 +85,7 @@ const SearchForm = ({ onSearch }: SearchFormProps) => {
 
         <div ref={toRef} className="relative">
           <label className="mb-1 block text-xs font-medium !text-white lg:!text-muted-foreground">{t.search.to}</label>
-          <div className="flex items-center gap-2 rounded-lg border mobile-glass-input lg:bg-background lg:border-input px-3 py-2.5 min-h-[48px] lg:min-h-0">
+          <div className="flex items-center gap-2 rounded-lg border bg-background border-input px-3 py-2.5 min-h-[48px] lg:min-h-0">
             <Search className="h-4 w-4 text-white/70 lg:text-muted-foreground" />
             <input type="text" value={toQuery} onChange={(e) => { setToQuery(e.target.value); setToId(""); setShowToSuggestions(true); }} onFocus={() => setShowToSuggestions(true)} placeholder={t.search.toPlaceholder} className="w-full bg-transparent text-sm !text-white lg:!text-foreground outline-none placeholder:text-white/60 lg:placeholder:text-muted-foreground" />
           </div>

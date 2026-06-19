@@ -58,11 +58,8 @@ const Dashboard = () => {
 
   return (
     <div 
-      className="min-h-screen mobile-bg lg:bg-background bg-cover bg-center bg-fixed bg-no-repeat lg:bg-[url('/hero-bg.png')]"
+      className="min-h-screen bg-background bg-[url('/mobile-bg.png')] md:bg-[url('/hero-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat"
     >
-      <div className="mobile-bg-overlay lg:hidden"></div>
-      <div className="mobile-route-line lg:hidden"></div>
-      <div className="mobile-route-line-2 lg:hidden" style={{ animationDelay: '2s' }}></div>
 
       <header className="sticky top-0 z-30 border-b border-white/10 lg:border-border bg-card/80 lg:bg-card/80 backdrop-blur-md">
         <div className="container flex items-center justify-between py-3">
@@ -122,10 +119,10 @@ const Dashboard = () => {
 
       <main className="container max-w-lg py-6 relative z-10">
         <div className="mb-4">
-          <h1 className="text-xl font-bold !text-white lg:!text-foreground">
+          <h1 className="text-xl font-bold text-foreground">
             {lang === "ta" ? "வணக்கம்" : "Hello"}, {user?.name?.split(" ")[0] || "User"} 👋
           </h1>
-          <p className="text-sm mobile-glass-muted lg:!text-muted-foreground">{t.app.tagline}</p>
+          <p className="text-sm text-muted-foreground">{t.app.tagline}</p>
         </div>
 
         <SearchForm onSearch={handleSearch} />
@@ -136,11 +133,11 @@ const Dashboard = () => {
 
         {currentSearch && (
           <>
-            <div className="mt-4 flex items-center gap-2 mobile-glass p-3 lg:bg-transparent lg:p-0 rounded-lg lg:border-none border border-white/20">
-              <button onClick={() => setCurrentSearch(null)} className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg lg:min-h-0 lg:min-w-0 lg:rounded-none bg-black/20 lg:bg-transparent text-white lg:text-primary hover:underline">
+            <div className="mt-4 flex items-center gap-2 bg-transparent p-3 lg:p-0 rounded-lg">
+              <button onClick={() => setCurrentSearch(null)} className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg lg:min-h-0 lg:min-w-0 lg:rounded-none bg-transparent text-primary hover:underline">
                 ←
               </button>
-              <span className="text-sm lg:text-xs font-medium !text-white lg:!text-muted-foreground ml-2">
+              <span className="text-sm lg:text-xs font-medium text-muted-foreground ml-2">
                 {getStopName(currentSearch.from)} → {getStopName(currentSearch.to)}
               </span>
             </div>

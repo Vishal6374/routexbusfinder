@@ -90,6 +90,48 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+    overflow-x: hidden;
+    max-width: 100vw;
+    touch-action: manipulation;
+  }
+
+  /* Prevent Safari auto-zoom and enforce solid backgrounds/text colors */
+  input, select, textarea {
+    font-size: 16px !important;
+    background-color: #FFFFFF !important;
+    color: #333333 !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+    -webkit-text-fill-color: #333333 !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #666666 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #666666 !important;
+  }
+
+  /* Prevent browser autofill from breaking styling */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px #FFFFFF inset !important;
+      -webkit-text-fill-color: #333333 !important;
+      transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Global button constraints for mobile */
+  button, .btn, [role="button"] {
+    min-height: 50px;
+    touch-action: manipulation;
+  }
+  
+  /* Ensure buttons never scale, stretch, or move when touched */
+  button:active, .btn:active, [role="button"]:active {
+    transform: none !important;
   }
 }
 
@@ -101,34 +143,6 @@
     box-shadow: 0 8px 24px -4px hsl(var(--foreground) / 0.12);
   }
 
-  .mobile-bg {
-    @apply relative overflow-hidden bg-cover bg-center bg-no-repeat;
-    background-image: linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.65)), url('/mobile-bg.png');
-  }
-  
-  .mobile-bg-overlay {
-    @apply absolute inset-0 bg-black/20 pointer-events-none z-0;
-  }
-
-  .mobile-glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-xl !text-white;
-  }
-  
-  .mobile-glass-input {
-    @apply bg-black/20 border-white/20 text-white placeholder:text-white/60 focus:bg-black/30 transition-colors;
-  }
-
-  .mobile-glass-muted {
-    @apply !text-white/70;
-  }
-  
-  .mobile-route-line {
-    @apply absolute h-[2px] w-full bg-gradient-to-r from-transparent via-blue-400/50 to-transparent top-1/4 opacity-50 z-0;
-  }
-  
-  .mobile-route-line-2 {
-    @apply absolute h-[2px] w-full bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent top-3/4 opacity-30 z-0;
-  }
 }
 
 

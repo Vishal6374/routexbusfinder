@@ -11,9 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/routex-logo.jpg";
 
-// TODO: replace with the merchant's real UPI VPA + display name
-const UPI_VPA = "routex@upi";
-const UPI_PAYEE_NAME = "RouteX";
+// Razorpay Checkout Integration
 
 interface TicketFlowProps {
   open: boolean;
@@ -46,9 +44,12 @@ const formatTime12 = (time24: string) => {
 };
 
 const generateTicketId = () => {
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const time = Date.now().toString(36).slice(-4).toUpperCase();
-  return `RX-${time}${rand}`;
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `RX-${yyyy}${mm}${dd}-${rand}`;
 };
 
 const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
@@ -120,170 +121,139 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
     }
   }, [open, bus.id, bus.from_id, bus.to_id]);
 
-  // Simulate payment processing
+  // Load Razorpay Script
   useEffect(() => {
-    if (step !== "processing") return;
-    const timer = setTimeout(() => {
-      const t: SavedTicket = {
-        ticketId: generateTicketId(),
-        passenger: passengerName,
-        fromName,
-        toName,
-        busNumber: bus.bus_number,
-        busName: bus.bus_name,
-        departure: estimatedDeparture,
-        arrival: bus.arrival,
-        price: segmentPrice,
-        issuedAt: new Date().toISOString(),
-      };
-      setTicket(t);
-      // Save to local "My Tickets"
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const list: SavedTicket[] = raw ? JSON.parse(raw) : [];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([t, ...list].slice(0, 50)));
-      } catch {
-        /* ignore */
+    const loadRazorpay = async () => {
+      if (document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
+        return;
       }
-      // Save to backend so it shows up in My Tickets across devices
-      if (user?.id) {
-        void supabase.from("tickets").insert({
-          user_id: user.id,
-          ticket_code: t.ticketId,
-          passenger_name: t.passenger,
-          bus_route_id: bus.id,
-          bus_number: t.busNumber,
-          bus_name: t.busName,
-          from_id: fromId,
-          to_id: toId,
-          from_name: t.fromName,
-          to_name: t.toName,
-          departure: t.departure,
-          arrival: t.arrival,
-          price: t.price,
-          status: "paid",
-          issued_at: t.issuedAt,
-        });
-      }
-      setStep("ticket");
-    }, 1400);
-    return () => clearTimeout(timer);
-  }, [step, bus, fromName, toName, passengerName, estimatedDeparture, segmentPrice, user?.id, fromId, toId]);
-
-  const issuedDate = useMemo(() => {
-    if (!ticket) return "";
-    const d = new Date(ticket.issuedAt);
-    return d.toLocaleString(lang === "ta" ? "ta-IN" : "en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  }, [ticket, lang]);
-
-  // After launching a UPI app, when the user returns to this tab,
-  // automatically move to processing → ticket.
-  const launchedRef = useRef(false);
-  useEffect(() => {
-    if (step !== "payment") {
-      launchedRef.current = false;
-      return;
-    }
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && launchedRef.current) {
-        launchedRef.current = false;
-        setStep("processing");
-      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
     };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [step]);
+    loadRazorpay();
+  }, []);
 
-  const [desktopNotice, setDesktopNotice] = useState(false);
-  const [qrPay, setQrPay] = useState<null | { qr: string; upiUrl: string }>(null);
-
-  const buildUpiUrl = () => {
-    const params = new URLSearchParams({
-      pa: UPI_VPA,
-      pn: UPI_PAYEE_NAME,
-      am: String(segmentPrice),
-      cu: "INR",
-      tn: `RouteX ${bus.bus_number} ${fromName}->${toName}`,
-    }).toString();
-    return `upi://pay?${params}`;
-  };
-
-  const showQrPayment = async () => {
-    const upiUrl = buildUpiUrl();
-    try {
-      const qr = await QRCode.toDataURL(upiUrl, { width: 260, margin: 1 });
-      setQrPay({ qr, upiUrl });
-    } catch {
-      setQrPay({ qr: "", upiUrl });
-    }
-  };
-
-  const openUpiApp = (app: "gpay" | "phonepe") => {
-    const ua = navigator.userAgent;
-    const isAndroid = /Android/i.test(ua);
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-    if (!isAndroid && !isIOS) {
-      setDesktopNotice(true);
-      void showQrPayment();
-      return;
-    }
-
-    // iOS: GPay/PhonePe do NOT register UPI URL schemes on iPhone.
-    // The only reliable path is showing a QR code the user scans from their UPI app.
-    if (isIOS) {
-      void showQrPayment();
-      return;
-    }
-
-    // Android: use Chrome Intent URLs to force-open the specific app.
-    launchedRef.current = true;
-    const upiUrl = buildUpiUrl();
-    const query = upiUrl.split("?")[1];
-    const pkg = app === "gpay" ? "com.google.android.apps.nbu.paisa.user" : "com.phonepe.app";
-    const intentUrl =
-      `intent://pay?${query}#Intent;scheme=upi;package=${pkg};end`;
-
-    // Try the targeted app first.
-    window.location.href = intentUrl;
-
-    // Fallback 1: generic upi:// (lets user pick any UPI app) after 700ms.
-    const t1 = window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        window.location.href = upiUrl;
-      }
-    }, 700);
-
-    // Fallback 2: if still on page after 2s, show QR so they can pay anyway.
-    window.setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        window.clearTimeout(t1);
-        launchedRef.current = false;
-        void showQrPayment();
-      }
-    }, 2000);
-  };
-
-  const copyVpa = async () => {
-    try {
-      await navigator.clipboard.writeText(UPI_VPA);
-      toast({ title: "UPI ID copied", description: UPI_VPA });
-    } catch {
-      toast({ title: "Copy failed", description: UPI_VPA, variant: "destructive" });
-    }
-  };
-
-  const markAsPaid = () => {
-    setQrPay(null);
+  const handleRazorpayPayment = async () => {
     setStep("processing");
+
+    try {
+      const { data: orderData, error: orderError } = await supabase.functions.invoke("create-order", {
+        body: { amount: segmentPrice * 100, currency: "INR" },
+      });
+
+      if (orderError || !orderData || orderData.success === false) {
+        throw new Error(orderError?.message || orderData?.error || "Failed to create order");
+      }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_T3XUzXPBSj8GPV",
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "RouteX",
+        description: `Ticket: ${fromName} to ${toName}`,
+        order_id: orderData.id,
+        handler: async function (response: any) {
+          try {
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-payment", {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            });
+
+            if (verifyError || !verifyData?.success) {
+              throw new Error("Payment verification failed");
+            }
+
+            handlePaymentSuccess();
+          } catch (err: any) {
+            toast({ title: "Verification Failed", description: err.message, variant: "destructive" });
+            setStep("summary");
+          }
+        },
+        prefill: {
+          name: passengerName,
+        },
+        theme: {
+          color: "#F97316", // RouteX Orange
+        },
+        modal: {
+          ondismiss: function () {
+            toast({ title: "Payment Cancelled", description: "You cancelled the payment." });
+            setStep("summary");
+          },
+        },
+      };
+
+      const Razorpay = (window as any).Razorpay;
+      if (!Razorpay) {
+        throw new Error("Razorpay SDK failed to load. Please check your network.");
+      }
+
+      const rzp = new Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        toast({ title: "Payment Failed", description: response.error.description, variant: "destructive" });
+        setStep("summary");
+      });
+      rzp.open();
+
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setStep("summary");
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    const t: SavedTicket = {
+      ticketId: generateTicketId(),
+      passenger: passengerName,
+      fromName,
+      toName,
+      busNumber: bus.bus_number,
+      busName: bus.bus_name,
+      departure: estimatedDeparture,
+      arrival: bus.arrival,
+      price: segmentPrice,
+      issuedAt: new Date().toISOString(),
+    };
+    setTicket(t);
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const list: SavedTicket[] = raw ? JSON.parse(raw) : [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([t, ...list].slice(0, 50)));
+    } catch {
+      /* ignore */
+    }
+    if (user?.id) {
+      void supabase.from("tickets").insert({
+        user_id: user.id,
+        ticket_code: t.ticketId,
+        passenger_name: t.passenger,
+        bus_route_id: bus.id,
+        bus_number: t.busNumber,
+        bus_name: t.busName,
+        from_id: fromId,
+        to_id: toId,
+        from_name: t.fromName,
+        to_name: t.toName,
+        departure: t.departure,
+        arrival: t.arrival,
+        price: t.price,
+        status: "paid",
+        issued_at: t.issuedAt,
+      });
+    }
+    setStep("ticket");
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+      <DialogContent 
+        className="w-[min(95vw,420px)] max-w-[420px] overflow-hidden overflow-x-hidden p-0 gap-0 box-border mx-auto sm:w-full"
+      >
         {step === "summary" && (
           <div className="animate-fade-in p-5">
             <div className="mb-4 flex items-center gap-2">
@@ -301,12 +271,12 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">From</p>
-                    <p className="truncate text-sm font-semibold text-foreground">{fromName}</p>
+                    <p className="break-words text-sm font-semibold text-foreground">{fromName}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1 text-right">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">To</p>
-                    <p className="truncate text-sm font-semibold text-foreground">{toName}</p>
+                    <p className="break-words text-sm font-semibold text-foreground">{toName}</p>
                   </div>
                   <Pencil className="ml-1 h-3.5 w-3.5 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" />
                 </button>
@@ -370,7 +340,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="w-full"
+                    className="w-full min-h-[50px]"
                     onClick={() => setEditing(false)}
                   >
                     Apply
@@ -385,8 +355,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
                   <dt className="text-muted-foreground">Bus Number</dt>
                   <dd className="font-medium text-foreground">{bus.bus_number}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Departure</dt>
+                <div className="flex justify-between">                  <dt className="text-muted-foreground">Departure</dt>
                   <dd className="font-medium text-foreground">{formatTime12(estimatedDeparture)}</dd>
                 </div>
                 <div className="flex justify-between">
@@ -401,87 +370,13 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
               </dl>
             </div>
 
-            <Button className="mt-5 w-full" onClick={() => setStep("payment")}>
+            <Button className="mt-5 w-full min-h-[50px]" onClick={handleRazorpayPayment}>
               Proceed to Pay
             </Button>
           </div>
         )}
 
-        {step === "payment" && (
-          <div className="animate-fade-in p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <Ticket className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Pay ₹{segmentPrice}</h2>
-            </div>
 
-            <p className="mb-3 text-center text-xs text-muted-foreground">
-              Choose a UPI app to complete payment
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <PayButton
-                label="GPay"
-                bg="bg-info/10"
-                fg="text-info"
-                onClick={() => openUpiApp("gpay")}
-              />
-              <PayButton
-                label="PhonePe"
-                bg="bg-accent/30"
-                fg="text-accent-foreground"
-                onClick={() => openUpiApp("phonepe")}
-              />
-            </div>
-
-            {desktopNotice && (
-              <p className="mt-3 rounded-md bg-warning/10 px-3 py-2 text-center text-xs font-medium text-warning-foreground">
-                Scan the QR below from any UPI app on your phone.
-              </p>
-            )}
-
-            {qrPay && (
-              <div className="mt-4 space-y-3 rounded-xl border border-border bg-card p-4">
-                <p className="text-center text-xs font-semibold text-foreground">
-                  Open GPay / PhonePe / any UPI app and scan
-                </p>
-                {qrPay.qr && (
-                  <div className="flex justify-center">
-                    <img
-                      src={qrPay.qr}
-                      alt="UPI payment QR code"
-                      className="h-52 w-52 rounded-lg bg-white p-2"
-                    />
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">UPI ID</p>
-                    <p className="truncate font-mono text-xs font-bold text-foreground">{UPI_VPA}</p>
-                  </div>
-                  <button
-                    onClick={copyVpa}
-                    className="flex items-center gap-1 rounded bg-secondary px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-secondary/80"
-                  >
-                    <Copy className="h-3 w-3" /> Copy
-                  </button>
-                </div>
-                <p className="text-center text-[10px] text-muted-foreground">
-                  Pay <span className="font-bold text-foreground">₹{segmentPrice}</span> then tap below
-                </p>
-                <Button size="sm" className="w-full" onClick={markAsPaid}>
-                  I have paid
-                </Button>
-              </div>
-            )}
-
-            <button
-              onClick={() => setStep("summary")}
-              className="mt-4 w-full text-xs text-muted-foreground hover:text-foreground"
-            >
-              ← Back
-            </button>
-          </div>
-        )}
 
         {step === "processing" && (
           <div className="flex flex-col items-center justify-center gap-3 p-10 text-center animate-fade-in">
@@ -503,7 +398,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
               Show this ticket to conductor if asked
             </p>
 
-            <Button className="mt-4 w-full" onClick={onClose}>
+            <Button className="mt-4 w-full min-h-[50px]" onClick={onClose}>
               Done
             </Button>
           </div>
@@ -513,19 +408,7 @@ const TicketFlow: React.FC<TicketFlowProps> = ({ open, onClose, bus }) => {
   );
 };
 
-const PayButton: React.FC<{
-  label: string;
-  bg: string;
-  fg: string;
-  onClick: () => void;
-}> = ({ label, bg, fg, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`flex h-16 items-center justify-center rounded-xl ${bg} text-base font-bold ${fg} shadow-sm transition-transform active:scale-95`}
-  >
-    {label}
-  </button>
-);
+
 
 const RainbowTicket: React.FC<{
   ticket: SavedTicket;
@@ -539,7 +422,7 @@ const RainbowTicket: React.FC<{
   const depTime = `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
 
   return (
-    <div className="relative mx-auto w-full max-w-md">
+    <div className="relative mx-auto w-full">
       {/* outer rainbow frame */}
       <div className="rounded-2xl bg-gradient-to-r from-red-500 via-orange-400 via-30% via-yellow-400 via-50% via-green-500 via-70% via-blue-500 to-purple-500 p-[2px] shadow-lg">
         <div className="relative flex overflow-hidden rounded-[14px] bg-card">
@@ -577,7 +460,7 @@ const RainbowTicket: React.FC<{
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                   From
                 </p>
-                <p className="truncate text-sm font-extrabold leading-tight text-foreground">
+                <p className="break-words text-sm font-extrabold leading-tight text-foreground">
                   {ticket.fromName}
                 </p>
               </div>
@@ -586,7 +469,7 @@ const RainbowTicket: React.FC<{
                 <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                   To
                 </p>
-                <p className="truncate text-sm font-extrabold leading-tight text-foreground">
+                <p className="break-words text-sm font-extrabold leading-tight text-foreground">
                   {ticket.toName}
                 </p>
               </div>

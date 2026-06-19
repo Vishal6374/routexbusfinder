@@ -10,30 +10,29 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="flex min-h-screen flex-col items-center justify-center mobile-bg lg:bg-background bg-cover bg-center bg-fixed bg-no-repeat px-4 lg:bg-[url('/hero-bg.png')]"
+      className="flex min-h-screen flex-col items-center justify-center bg-background bg-[url('/mobile-bg.png')] md:bg-[url('/hero-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat px-4"
     >
-      <div className="mobile-bg-overlay lg:hidden"></div>
       <div className="mobile-route-line lg:hidden"></div>
       <div className="mobile-route-line-2 lg:hidden" style={{ animationDelay: '2s' }}></div>
       <div className="absolute right-4 top-4 z-10">
         <LanguageToggle />
       </div>
 
-      <div className="w-full max-w-sm animate-fade-in z-10 p-6 rounded-2xl mobile-glass lg:bg-transparent lg:border-none lg:shadow-none lg:p-0 lg:text-foreground">
+      <div className="w-full max-w-sm animate-fade-in z-10 p-6 lg:p-0 rounded-2xl bg-transparent text-foreground">
         <div className="mb-8 flex flex-col items-center gap-3">
           <img src={logo} alt="RouteX logo" className="h-28 w-28 rounded-2xl object-contain shadow-md lg:shadow-none" />
-          <p className="text-center text-sm mobile-glass-muted lg:!text-muted-foreground">{t.app.tagline}</p>
+          <p className="text-center text-sm text-muted-foreground">{t.app.tagline}</p>
         </div>
 
         <div className="mb-6 text-center">
-          <h2 className="text-xl font-semibold !text-white lg:!text-foreground">{t.login.title}</h2>
-          <p className="mt-1 text-sm mobile-glass-muted lg:!text-muted-foreground">{t.login.subtitle}</p>
+          <h2 className="text-xl font-semibold text-foreground">{t.login.title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t.login.subtitle}</p>
         </div>
 
         <div className="flex flex-col gap-3">
           <button
             onClick={() => login("google")}
-            className="flex w-full min-h-[44px] items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary lg:min-h-0 mobile-glass-input lg:bg-card lg:text-card-foreground"
+            className="flex w-full min-h-[44px] items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary lg:min-h-0"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
@@ -51,7 +50,7 @@ const LoginPage = () => {
               <div className="w-full border-t border-white/20 lg:border-border" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 text-xs mobile-glass-muted lg:bg-background lg:!text-muted-foreground bg-transparent">or</span>
+              <span className="px-3 text-xs text-muted-foreground bg-background">or</span>
             </div>
           </div>
 
@@ -63,7 +62,7 @@ const LoginPage = () => {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs mobile-glass-muted lg:!text-muted-foreground">{t.login.terms}</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">{t.login.terms}</p>
       </div>
     </div>
   );
