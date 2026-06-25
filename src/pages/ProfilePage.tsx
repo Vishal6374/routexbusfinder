@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import LanguageToggle from "@/components/LanguageToggle";
 import { ArrowLeft, User, Mail, Globe, LogOut, ShieldCheck } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 const ProfilePage = () => {
   const { t, lang, setLang } = useLanguage();
@@ -33,7 +34,7 @@ const ProfilePage = () => {
         </div>
       </header>
 
-      <main className="container max-w-lg py-6">
+      <main className="container max-w-lg pt-6 pb-24 md:pb-6">
         <div className="mb-6 flex flex-col items-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-3xl font-bold text-primary-foreground">
             {(user?.name || "U")[0].toUpperCase()}
@@ -99,6 +100,7 @@ const ProfilePage = () => {
           </button>
         )}
       </main>
+      <MobileBottomNav />
     </div>
   );
 };

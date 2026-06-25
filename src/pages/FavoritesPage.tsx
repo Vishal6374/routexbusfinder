@@ -9,6 +9,7 @@ import { BusRoute } from "@/hooks/useBusSearch";
 import BusCard from "@/components/BusCard";
 import { Bus, ArrowLeft } from "lucide-react";
 import LanguageToggle from "@/components/LanguageToggle";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 const FavoritesPage = () => {
   const { t } = useLanguage();
@@ -51,7 +52,7 @@ const FavoritesPage = () => {
         </div>
       </header>
 
-      <main className="container max-w-lg py-6">
+      <main className="container max-w-lg pt-6 pb-24 md:pb-6">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -77,6 +78,7 @@ const FavoritesPage = () => {
           </div>
         )}
       </main>
+      <MobileBottomNav />
     </div>
   );
 };

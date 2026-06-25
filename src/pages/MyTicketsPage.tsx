@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import LanguageToggle from "@/components/LanguageToggle";
 import logo from "@/assets/routex-logo.jpg";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 const formatTime12 = (time24: string) => {
   const [h, m] = time24.split(":").map(Number);
@@ -82,7 +83,7 @@ const MyTicketsPage = () => {
         </div>
       </header>
 
-      <main className="container max-w-lg py-6">
+      <main className="container max-w-lg pt-6 pb-24 md:pb-6">
         {tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <TicketIcon className="h-10 w-10 text-muted-foreground" />
@@ -131,6 +132,7 @@ const MyTicketsPage = () => {
           </div>
         )}
       </main>
+      <MobileBottomNav />
     </div>
   );
 };

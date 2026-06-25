@@ -8,9 +8,10 @@ import LanguageToggle from "@/components/LanguageToggle";
 import SearchForm from "@/components/SearchForm";
 import BusResults from "@/components/BusResults";
 import RecentSearches, { RecentSearch } from "@/components/RecentSearches";
-import { Heart, User, LogOut, Ticket, Menu, X } from "lucide-react";
+import { Heart, User, LogOut, Ticket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logo from "@/assets/routex-logo.jpg";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 const Dashboard = () => {
   const { t, lang } = useLanguage();
@@ -20,7 +21,6 @@ const Dashboard = () => {
   const { savedRouteIds, toggleFavorite } = useFavorites();
 
   const [currentSearch, setCurrentSearch] = useState<{ from: string; to: string } | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(() => {
     const saved = localStorage.getItem("tn-bus-recent");
     return saved ? JSON.parse(saved) : [];
@@ -70,9 +70,6 @@ const Dashboard = () => {
           
           <div className="lg:hidden flex items-center gap-2">
             <LanguageToggle />
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-foreground" aria-label="Menu">
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
@@ -92,32 +89,10 @@ const Dashboard = () => {
           </div>
         </div>
         
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden border-t border-white/10 bg-card/95 backdrop-blur-md absolute w-full left-0 animate-fade-in shadow-xl">
-            <div className="flex flex-col p-4 gap-2">
-              <button onClick={() => { setIsMobileMenuOpen(false); navigate("/favorites"); }} className="flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 hover:bg-secondary text-foreground">
-                <Heart className="h-5 w-5" />
-                <span className="font-medium">{t.nav.favorites}</span>
-              </button>
-              <button onClick={() => { setIsMobileMenuOpen(false); navigate("/tickets"); }} className="flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 hover:bg-secondary text-foreground">
-                <Ticket className="h-5 w-5" />
-                <span className="font-medium">My Tickets</span>
-              </button>
-              <button onClick={() => { setIsMobileMenuOpen(false); navigate("/profile"); }} className="flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 hover:bg-secondary text-foreground">
-                <User className="h-5 w-5" />
-                <span className="font-medium">{t.nav.profile}</span>
-              </button>
-              <button onClick={async () => { await logout(); navigate("/"); }} className="flex min-h-[44px] items-center gap-3 rounded-lg px-4 py-2 hover:bg-secondary text-destructive mt-2">
-                <LogOut className="h-5 w-5" />
-                <span className="font-medium">{t.nav.logout}</span>
-              </button>
-            </div>
-          </div>
-        )}
+
       </header>
 
-      <main className="container max-w-lg py-6 relative z-10">
+      <main className="container max-w-lg pt-6 pb-24 md:pb-6 relative z-10">
         <div className="mb-4">
           <h1 className="text-xl font-bold text-foreground">
             {lang === "ta" ? "வணக்கம்" : "Hello"}, {user?.name?.split(" ")[0] || "User"} 👋
@@ -151,6 +126,7 @@ const Dashboard = () => {
           </>
         )}
       </main>
+      <MobileBottomNav />
     </div>
   );
 };
